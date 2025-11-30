@@ -6,6 +6,11 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import java.time.LocalDateTime;
+import java.util.List;
+
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
     // For Employees: See tasks assigned TO them
@@ -15,4 +20,16 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findByCreatorId(Long creatorId);
 
     // Note: Super Admin will use the standard findAll() provided by JpaRepository
+
+    // Aggregation Query: Returns a list of arrays like [ ["PENDING", 5], ["COMPLETED", 3] ]
+    @Query("SELECT t.status, COUNT(t) FROM Task t " +
+            "WHERE t.assignee.id = :assigneeId " +
+            "AND t.createdAt BETWEEN :startDate AND :endDate " +
+            "GROUP BY t.status")
+    List<Object[]> getTaskCountByStatusForAssignee(
+            @Param("assigneeId") Long assigneeId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
 }
+
