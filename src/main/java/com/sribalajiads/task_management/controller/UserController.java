@@ -31,4 +31,20 @@ public class UserController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
+    // DELETE Endpoint - Only Super Admin can delete users
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteUser(@PathVariable Long id) {
+        try {
+            userService.deleteUser(id);
+            return ResponseEntity.ok("User deleted successfully");
+        } catch (IllegalStateException e) {
+            // Return 409 Conflict if they are a Department Head
+            return ResponseEntity.status(409).body(e.getMessage());
+        } catch (RuntimeException e) {
+            // Return 400 Bad Request for other errors (like User not found)
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }

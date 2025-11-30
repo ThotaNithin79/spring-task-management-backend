@@ -9,6 +9,7 @@ import com.sribalajiads.task_management.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional; // Added for data consistency
 
 @Service
 public class UserService {
@@ -22,6 +23,8 @@ public class UserService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    // Use Transactional to ensure both User and Department tables update together
+    @Transactional
     public User createUser(CreateUserRequest request, String requesterEmail) {
         // 1. Check if user already exists
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -50,6 +53,20 @@ public class UserService {
                 Department dept = departmentRepository.findById(request.getDepartmentId())
                         .orElseThrow(() -> new RuntimeException("Department not found"));
                 newUser.setDepartment(dept);
+
+                // === FIX: DATA CONSISTENCY ===
+                // If Admin is creating a DEPT_HEAD, we must update the Department table
+                // to link this new user as the 'head_user_id'.
+                if (request.getRole() == Role.DEPT_HEAD) {
+                    // 1. Save the user first to generate the ID
+                    newUser = userRepository.save(newUser);
+
+                    // 2. Update the Department
+                    dept.setHeadUser(newUser);
+                    departmentRepository.save(dept);
+
+                    return newUser; // Return early because we already saved
+                }
             }
         }
         else if (requester.getRole() == Role.DEPT_HEAD) {
@@ -72,5 +89,24 @@ public class UserService {
         }
 
         return userRepository.save(newUser);
+    }
+
+    // TASK 8: Graceful Deletion Logic
+    public void deleteUser(Long userId) {
+        // 1. Find the User
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 2. Check: Is this user a Department Head?
+        // This relies on the 'departments' table being correct (which the fix above ensures)
+        if (departmentRepository.findByHeadUser(user).isPresent()) {
+            Department dept = departmentRepository.findByHeadUser(user).get();
+            throw new IllegalStateException("CONFLICT: Cannot delete user '" + user.getUsername() +
+                    "' because they are the Head of the '" + dept.getName() +
+                    "' Department. Please assign a new Head to the department first.");
+        }
+
+        // 3. Delete the User
+        userRepository.delete(user);
     }
 }

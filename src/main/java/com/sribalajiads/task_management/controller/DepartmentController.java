@@ -69,4 +69,44 @@ public class DepartmentController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    // NEW ENDPOINT: Assign a Head to a Department
+    // This updates BOTH the Users table and the Departments table
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PutMapping("/{deptId}/assign-head/{userId}")
+    public ResponseEntity<?> assignDepartmentHead(@PathVariable Long deptId, @PathVariable Long userId) {
+
+        // 1. Fetch Department
+        Department dept = departmentRepository.findById(deptId)
+                .orElseThrow(() -> new RuntimeException("Department not found"));
+
+        // 2. Fetch User
+        User newHead = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 3. Logic: Check if this user is already head of ANOTHER department
+        // (We don't want one person leading two departments)
+        if (departmentRepository.findByHeadUser(newHead).isPresent()) {
+            Department existingDept = departmentRepository.findByHeadUser(newHead).get();
+            if (!existingDept.getId().equals(deptId)) {
+                return ResponseEntity.badRequest().body("User is already the Head of " + existingDept.getName());
+            }
+        }
+
+        // 4. Handle the OLD Head (if exists) - Demote them to Employee?
+        // For now, let's keep it simple: we just overwrite the head.
+        // The old head remains in the department but loses the 'link' in the Department table.
+        // Optionally, you can change the old head's role to EMPLOYEE here.
+
+        // 5. Update the USER
+        newHead.setRole(Role.DEPT_HEAD);
+        newHead.setDepartment(dept);
+        userRepository.save(newHead);
+
+        // 6. Update the DEPARTMENT (Crucial Step missing previously)
+        dept.setHeadUser(newHead);
+        departmentRepository.save(dept);
+
+        return ResponseEntity.ok("Department Head updated successfully to: " + newHead.getUsername());
+    }
 }
