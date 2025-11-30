@@ -20,6 +20,9 @@ import java.util.stream.Collectors;
 
 import java.util.Objects;
 
+import com.sribalajiads.task_management.service.FileStorageService;
+import org.springframework.web.multipart.MultipartFile;
+
 @Service
 public class TaskService {
 
@@ -28,6 +31,10 @@ public class TaskService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private FileStorageService fileStorageService;
+
 
     public Task createTask(CreateTaskRequest request, String creatorEmail) {
         // 1. Get Creator
@@ -124,5 +131,62 @@ public class TaskService {
 
         return dto;
     }
+
+    // 1. Start Task Logic
+    public void startTask(Long taskId, String userEmail) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        User currentUser = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Validate: Only Assignee can start the task
+        if (!task.getAssignee().getId().equals(currentUser.getId())) {
+            throw new RuntimeException("Access Denied: You are not the assignee of this task.");
+        }
+
+        // Validate: Status must be PENDING
+        if (task.getStatus() != TaskStatus.PENDING) {
+            throw new RuntimeException("Invalid Action: Task is not in PENDING state.");
+        }
+
+        task.setStatus(TaskStatus.IN_PROGRESS);
+        taskRepository.save(task);
+    }
+
+    // 2. Submit Task Logic
+    public void submitTask(Long taskId, String userEmail, MultipartFile file) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        User currentUser = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // Validate: Only Assignee can submit
+        if (!task.getAssignee().getId().equals(currentUser.getId())) {
+            throw new RuntimeException("Access Denied: You are not the assignee of this task.");
+        }
+
+        // Validate: Status must be IN_PROGRESS
+        if (task.getStatus() != TaskStatus.IN_PROGRESS) {
+            throw new RuntimeException("Invalid Action: Task must be IN PROGRESS before submitting.");
+        }
+
+        // Validate: File exists
+        if (file == null || file.isEmpty()) {
+            throw new RuntimeException("Error: You must upload a proof file to submit the task.");
+        }
+
+        // Store File and Get Path/URL
+        String fileName = fileStorageService.storeFile(file);
+
+        // In a real app, this would be a full URL (e.g., http://localhost:8080/download/...)
+        // For now, we store the filename
+        task.setProofUrl(fileName);
+        task.setStatus(TaskStatus.SUBMITTED);
+
+        taskRepository.save(task);
+    }
+
 
 }

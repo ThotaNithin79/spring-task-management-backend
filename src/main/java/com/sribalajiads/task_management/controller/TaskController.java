@@ -14,6 +14,9 @@ import java.util.List;
 
 import com.sribalajiads.task_management.dto.TaskResponseDTO;
 
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
+
 @RestController
 @RequestMapping("/api/v1/tasks")
 public class TaskController {
@@ -47,5 +50,34 @@ public class TaskController {
         return ResponseEntity.ok(tasks);
     }
 
+    // 1. Start Task
+    @PatchMapping("/{id}/start")
+    public ResponseEntity<?> startTask(@PathVariable Long id) {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String email = auth.getName();
+
+            taskService.startTask(id, email);
+            return ResponseEntity.ok("Task started successfully. Status changed to IN_PROGRESS.");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // 2. Submit Task (With File Upload)
+    @PostMapping(value = "/{id}/submit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> submitTask(
+            @PathVariable Long id,
+            @RequestParam("file") MultipartFile file) { // <--- This name "file" is crucial
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String email = auth.getName();
+
+            taskService.submitTask(id, email, file);
+            return ResponseEntity.ok("Task submitted successfully. Pending review.");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 
 }
