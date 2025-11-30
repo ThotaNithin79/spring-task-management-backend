@@ -17,6 +17,8 @@ import com.sribalajiads.task_management.dto.TaskResponseDTO;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.MediaType;
 
+import com.sribalajiads.task_management.dto.ReviewTaskRequest;
+
 @RestController
 @RequestMapping("/api/v1/tasks")
 public class TaskController {
@@ -65,16 +67,35 @@ public class TaskController {
     }
 
     // 2. Submit Task (With File Upload)
-    @PostMapping(value = "/{id}/submit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    // 2. Submit Task (With File Upload)
+    @PatchMapping(value = "/{id}/submit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> submitTask(
             @PathVariable Long id,
-            @RequestParam("file") MultipartFile file) { // <--- This name "file" is crucial
+            @RequestParam("file") MultipartFile file) {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             String email = auth.getName();
 
             taskService.submitTask(id, email, file);
             return ResponseEntity.ok("Task submitted successfully. Pending review.");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // 3. Review Task (Accept/Reject)
+    @PatchMapping("/{id}/review")
+    public ResponseEntity<?> reviewTask(
+            @PathVariable Long id,
+            @RequestBody ReviewTaskRequest request) {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String email = auth.getName();
+
+            taskService.reviewTask(id, email, request.getAction());
+
+            String message = "Task " + request.getAction().toLowerCase() + "ed successfully.";
+            return ResponseEntity.ok(message);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

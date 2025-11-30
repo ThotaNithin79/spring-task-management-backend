@@ -188,5 +188,40 @@ public class TaskService {
         taskRepository.save(task);
     }
 
+    public void reviewTask(Long taskId, String reviewerEmail, String action) {
+        // 1. Fetch Task
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        // 2. Fetch Reviewer (Logged-in User)
+        User reviewer = userRepository.findByEmail(reviewerEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 3. Authorization: Only the CREATOR can review the task
+        if (!task.getCreator().getId().equals(reviewer.getId())) {
+            throw new RuntimeException("Access Denied: Only the task creator can review this task.");
+        }
+
+        // 4. State Check: Task should be in SUBMITTED state to be reviewed
+        // (Optional: You might allow reviewing IN_PROGRESS, but SUBMITTED makes most sense)
+        if (task.getStatus() != TaskStatus.SUBMITTED) {
+            throw new RuntimeException("Invalid Action: Task is not in SUBMITTED state yet.");
+        }
+
+        // 5. Apply Logic
+        if ("ACCEPT".equalsIgnoreCase(action)) {
+            task.setStatus(TaskStatus.COMPLETED);
+        }
+        else if ("REJECT".equalsIgnoreCase(action)) {
+            task.setStatus(TaskStatus.PENDING); // Send back to start
+            // Optional: You could add a 'rejectionReason' field to the task entity later
+        }
+        else {
+            throw new RuntimeException("Invalid Action: Must be 'ACCEPT' or 'REJECT'.");
+        }
+
+        taskRepository.save(task);
+    }
+
 
 }
