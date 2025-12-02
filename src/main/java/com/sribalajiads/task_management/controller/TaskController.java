@@ -27,16 +27,28 @@ public class TaskController {
     private TaskService taskService;
 
     // Only Admin and Heads can create tasks
+    // @PostMapping with MULTIPART_FORM_DATA
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DEPT_HEAD')")
-    @PostMapping
-    public ResponseEntity<?> createTask(@RequestBody CreateTaskRequest request) {
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> createTask(
+            @RequestParam("title") String title,
+            @RequestParam("description") String description,
+            @RequestParam("assigneeId") Long assigneeId,
+            @RequestParam(value = "file", required = false) MultipartFile file // Optional File
+    ) {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             String creatorEmail = auth.getName();
 
-            taskService.createTask(request, creatorEmail);
+            // Create the DTO manually from parameters
+            CreateTaskRequest request = new CreateTaskRequest();
+            request.setTitle(title);
+            request.setDescription(description);
+            request.setAssigneeId(assigneeId);
 
-            return ResponseEntity.status(201).body("Task created successfully");
+            taskService.createTask(request, creatorEmail, file);
+
+            return ResponseEntity.status(201).body("Task created successfully with attachment.");
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }

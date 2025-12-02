@@ -9,6 +9,7 @@ public class TaskResponseDTO {
     private String description;
     private TaskStatus status;
     private String proofUrl;
+    private String attachmentUrl;
     private LocalDateTime createdAt;
 
     // Nested DTOs instead of full Entities
@@ -42,4 +43,7 @@ public class TaskResponseDTO {
 
     public UserSummaryDTO getAssignee() { return assignee; }
     public void setAssignee(UserSummaryDTO assignee) { this.assignee = assignee; }
+
+    public String getAttachmentUrl() { return attachmentUrl; }
+    public void setAttachmentUrl(String attachmentUrl) { this.attachmentUrl = attachmentUrl; }
 }

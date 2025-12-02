@@ -10,6 +10,8 @@ import com.sribalajiads.task_management.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import org.springframework.web.multipart.MultipartFile;
+
 import java.util.List;
 import java.util.Collections;
 
@@ -36,7 +38,8 @@ public class TaskService {
     private FileStorageService fileStorageService;
 
 
-    public Task createTask(CreateTaskRequest request, String creatorEmail) {
+    // Now accepts MultipartFile
+    public Task createTask(CreateTaskRequest request, String creatorEmail, MultipartFile file) {
         // 1. Get Creator
         User creator = userRepository.findByEmail(creatorEmail)
                 .orElseThrow(() -> new RuntimeException("Creator not found"));
@@ -45,31 +48,32 @@ public class TaskService {
         User assignee = userRepository.findById(request.getAssigneeId())
                 .orElseThrow(() -> new RuntimeException("Assignee user not found"));
 
-        // 3. VALIDATION LOGIC
+        // 3. Validation Logic (Dept Head checks)
         if (creator.getRole() == Role.DEPT_HEAD) {
-            // Check if Creator has a department
             if (creator.getDepartment() == null) {
-                throw new RuntimeException("You are not assigned to any department, so you cannot create tasks.");
+                throw new RuntimeException("You are not assigned to any department.");
             }
-
-            // Check if Assignee belongs to the SAME department
-            // We use Objects.equals to safely compare Long IDs (handling nulls)
             Long creatorDeptId = creator.getDepartment().getId();
             Long assigneeDeptId = (assignee.getDepartment() != null) ? assignee.getDepartment().getId() : null;
 
-            if (!Objects.equals(creatorDeptId, assigneeDeptId)) {
+            if (!java.util.Objects.equals(creatorDeptId, assigneeDeptId)) {
                 throw new RuntimeException("Access Denied: You can only assign tasks to employees within your own department.");
             }
         }
-        // If SUPER_ADMIN, we skip the check (they can assign to anyone)
 
-        // 4. Create Task
+        // 4. Create Task Object
         Task task = new Task();
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
         task.setCreator(creator);
         task.setAssignee(assignee);
-        task.setStatus(TaskStatus.PENDING); // Default status
+        task.setStatus(TaskStatus.PENDING);
+
+        // 5. NEW LOGIC: Handle Attachment File
+        if (file != null && !file.isEmpty()) {
+            String fileName = fileStorageService.storeFile(file);
+            task.setAttachmentUrl(fileName); // Save Creator's file path
+        }
 
         return taskRepository.save(task);
     }
@@ -102,33 +106,26 @@ public class TaskService {
     }
 
     // Helper method to convert Entity to DTO
+    // ... Update mapToDTO helper method to include the new field ...
     private TaskResponseDTO mapToDTO(Task task) {
         TaskResponseDTO dto = new TaskResponseDTO();
         dto.setId(task.getId());
         dto.setTitle(task.getTitle());
         dto.setDescription(task.getDescription());
         dto.setStatus(task.getStatus());
-        dto.setProofUrl(task.getProofUrl());
+        dto.setProofUrl(task.getProofUrl());       // Assignee's File
+        dto.setAttachmentUrl(task.getAttachmentUrl()); // Creator's File (NEW)
         dto.setCreatedAt(task.getCreatedAt());
 
-        // Map Creator
+        // ... map creator/assignee DTOs ...
         if (task.getCreator() != null) {
             dto.setCreator(new UserSummaryDTO(
-                    task.getCreator().getId(),
-                    task.getCreator().getUsername(),
-                    task.getCreator().getEmail()
-            ));
+                    task.getCreator().getId(), task.getCreator().getUsername(), task.getCreator().getEmail()));
         }
-
-        // Map Assignee
         if (task.getAssignee() != null) {
             dto.setAssignee(new UserSummaryDTO(
-                    task.getAssignee().getId(),
-                    task.getAssignee().getUsername(),
-                    task.getAssignee().getEmail()
-            ));
+                    task.getAssignee().getId(), task.getAssignee().getUsername(), task.getAssignee().getEmail()));
         }
-
         return dto;
     }
 

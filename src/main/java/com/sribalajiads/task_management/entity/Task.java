@@ -28,6 +28,10 @@ public class Task {
     @Column(name = "proof_url")
     private String proofUrl;
 
+    // (File uploaded by Creator)
+    @Column(name = "attachment_url")
+    private String attachmentUrl;
+
     // Relationships
     @ManyToOne
     @JoinColumn(name = "creator_id", nullable = false)
@@ -72,4 +76,7 @@ public class Task {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
-}
+
+    public String getAttachmentUrl() { return attachmentUrl; }
+    public void setAttachmentUrl(String attachmentUrl) { this.attachmentUrl = attachmentUrl; }
+    }
