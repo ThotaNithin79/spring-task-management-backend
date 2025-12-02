@@ -6,6 +6,10 @@ import com.sribalajiads.task_management.entity.Role;
 import com.sribalajiads.task_management.entity.User;
 import com.sribalajiads.task_management.repository.DepartmentRepository;
 import com.sribalajiads.task_management.repository.UserRepository;
+
+import com.sribalajiads.task_management.dto.UserResponseDTO;
+import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -126,6 +130,31 @@ public class DepartmentController {
         return ResponseEntity.ok("Department Head updated successfully to: " + newHead.getUsername());
     }
 
+    // Get all users in a specific department
+    // Useful for: Admin viewing lists, or Head selecting an assignee
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DEPT_HEAD')")
+    @GetMapping("/{id}/users")
+    public ResponseEntity<?> getUsersByDepartment(@PathVariable Long id) {
+        // 1. Check if Department exists
+        if (!departmentRepository.existsById(id)) {
+            return ResponseEntity.badRequest().body("Department not found");
+        }
 
+        // 2. Fetch Users
+        List<User> users = userRepository.findByDepartmentId(id);
+
+        // 3. Convert to DTO
+        List<UserResponseDTO> userDTOs = users.stream()
+                .map(user -> new UserResponseDTO(
+                        user.getId(),
+                        user.getUsername(),
+                        user.getEmail(),
+                        user.getRole(),
+                        user.isActive()
+                ))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(userDTOs);
+    }
 
 }
