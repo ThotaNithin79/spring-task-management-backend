@@ -22,20 +22,26 @@ public class ReportService {
     @Autowired
     private UserRepository userRepository;
 
-    public TaskStatsDTO getEmployeeStats(String email, LocalDate startDate, LocalDate endDate) {
-        // 1. Get User
-        User user = userRepository.findByEmail(email)
+    // Get stats for a specific User ID (For Admin/Head view)
+    public TaskStatsDTO getStatsByUserId(Long userId, LocalDate startDate, LocalDate endDate) {
+        // 1. Verify User exists
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // 2. Convert Dates to DateTime (Start of day / End of day)
-        LocalDateTime startDateTime = startDate.atStartOfDay(); // 00:00:00
-        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX); // 23:59:59.999
+        // 2. Reuse the existing logic
+        // We pass the user's email to the existing method, or refactor the logic.
+        // Let's just refactor the logic to accept User object to avoid redundant DB calls.
+        return generateStatsForUser(user, startDate, endDate);
+    }
 
-        // 3. Run Query
+    // Refactored helper to avoid code duplication
+    private TaskStatsDTO generateStatsForUser(User user, LocalDate startDate, LocalDate endDate) {
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
         List<Object[]> results = taskRepository.getTaskCountByStatusForAssignee(
                 user.getId(), startDateTime, endDateTime);
 
-        // 4. Map Results to DTO
         TaskStatsDTO stats = new TaskStatsDTO();
         long totalTasks = 0;
 
@@ -53,7 +59,13 @@ public class ReportService {
             }
         }
         stats.setTotal(totalTasks);
-
         return stats;
+    }
+
+    // getEmployeeStats to use the helper
+    public TaskStatsDTO getEmployeeStats(String email, LocalDate startDate, LocalDate endDate) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return generateStatsForUser(user, startDate, endDate);
     }
 }

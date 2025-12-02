@@ -11,6 +11,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import com.sribalajiads.task_management.dto.DepartmentResponseDTO;
+import java.util.stream.Collectors;
+
 import java.util.List;
 
 @RestController
@@ -56,10 +59,23 @@ public class DepartmentController {
         return ResponseEntity.status(201).body("Department created successfully");
     }
 
-    // 2. Get All Departments (Available to Admin and Heads)
+    // 2. Get All Departments (For Dropdowns & Lists)
+    // Accessible by: SUPER_ADMIN (to select dept for new user) and DEPT_HEAD (view only)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DEPT_HEAD')")
     @GetMapping
-    public List<Department> getAllDepartments() {
-        return departmentRepository.findAll();
+    public ResponseEntity<List<DepartmentResponseDTO>> getAllDepartments() {
+        List<Department> departments = departmentRepository.findAll();
+
+        List<DepartmentResponseDTO> dtos = departments.stream()
+                .map(dept -> new DepartmentResponseDTO(
+                        dept.getId(),
+                        dept.getName(),
+                        dept.getDescription(),
+                        (dept.getHeadUser() != null) ? dept.getHeadUser().getUsername() : "Unassigned"
+                ))
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(dtos);
     }
 
     // 3. Get Single Department
@@ -109,4 +125,7 @@ public class DepartmentController {
 
         return ResponseEntity.ok("Department Head updated successfully to: " + newHead.getUsername());
     }
+
+
+
 }
