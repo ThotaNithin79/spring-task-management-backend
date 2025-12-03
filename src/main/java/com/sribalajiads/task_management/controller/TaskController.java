@@ -122,4 +122,26 @@ public class TaskController {
         return ResponseEntity.ok(history);
     }
 
+    // EDIT TASK (Within 5 mins)
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DEPT_HEAD')")
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> updateTask(
+            @PathVariable Long id,
+            @RequestParam("title") String title,
+            @RequestParam("description") String description,
+            @RequestParam("assigneeId") Long assigneeId,
+            @RequestParam(value = "file", required = false) MultipartFile file // Optional (Keep old file if null)
+    ) {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String email = auth.getName();
+
+            taskService.updateTask(id, email, title, description, assigneeId, file);
+
+            return ResponseEntity.ok("Task updated successfully.");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
 }

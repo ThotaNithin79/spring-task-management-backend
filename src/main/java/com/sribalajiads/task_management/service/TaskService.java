@@ -10,6 +10,9 @@ import com.sribalajiads.task_management.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+
 import com.sribalajiads.task_management.entity.TaskHistory;
 import com.sribalajiads.task_management.repository.TaskHistoryRepository;
 import com.sribalajiads.task_management.dto.TaskHistoryDTO;
@@ -269,6 +272,60 @@ public class TaskService {
                         h.getTimestamp()
                 ))
                 .collect(Collectors.toList());
+    }
+
+    // TASK EDIT: Update Task (Allowed only within 5 minutes)
+    public Task updateTask(Long taskId, String editorEmail, String title, String description, Long assigneeId, MultipartFile file) {
+        // 1. Fetch Task
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        // 2. Fetch Editor (Current User)
+        User editor = userRepository.findByEmail(editorEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 3. CHECK 1: Only Creator can edit
+        if (!task.getCreator().getId().equals(editor.getId())) {
+            throw new RuntimeException("Access Denied: Only the creator can edit this task.");
+        }
+
+        // 4. CHECK 2: Time Constraint (5 Minutes)
+        LocalDateTime now = LocalDateTime.now();
+        long minutesElapsed = ChronoUnit.MINUTES.between(task.getCreatedAt(), now);
+
+        if (minutesElapsed > 5) {
+            throw new RuntimeException("Edit Time Expired: You can only edit a task within 5 minutes of creation. Time elapsed: " + minutesElapsed + " mins.");
+        }
+
+        // 5. Logic: Update Assignee (Check Hierarchy Rules again)
+        // Only update assignee if the ID is different
+        if (!task.getAssignee().getId().equals(assigneeId)) {
+            User newAssignee = userRepository.findById(assigneeId)
+                    .orElseThrow(() -> new RuntimeException("New assignee not found"));
+
+            // Re-validate Department Head Rule
+            if (editor.getRole() == Role.DEPT_HEAD) {
+                Long editorDeptId = editor.getDepartment().getId();
+                Long assigneeDeptId = (newAssignee.getDepartment() != null) ? newAssignee.getDepartment().getId() : null;
+
+                if (!java.util.Objects.equals(editorDeptId, assigneeDeptId)) {
+                    throw new RuntimeException("Access Denied: You cannot assign tasks to employees outside your department.");
+                }
+            }
+            task.setAssignee(newAssignee);
+        }
+
+        // 6. Update Fields
+        task.setTitle(title);
+        task.setDescription(description);
+
+        // 7. Update Attachment (If a new file is uploaded)
+        if (file != null && !file.isEmpty()) {
+            String fileName = fileStorageService.storeFile(file);
+            task.setAttachmentUrl(fileName); // Overwrite old file
+        }
+
+        return taskRepository.save(task);
     }
 
 }
