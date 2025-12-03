@@ -90,8 +90,7 @@ public class DepartmentController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // NEW ENDPOINT: Assign a Head to a Department
-    // This updates BOTH the Users table and the Departments table
+    // Swap Department Head
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     @PutMapping("/{deptId}/assign-head/{userId}")
     public ResponseEntity<?> assignDepartmentHead(@PathVariable Long deptId, @PathVariable Long userId) {
@@ -100,12 +99,11 @@ public class DepartmentController {
         Department dept = departmentRepository.findById(deptId)
                 .orElseThrow(() -> new RuntimeException("Department not found"));
 
-        // 2. Fetch User
+        // 2. Fetch the New Head Candidate
         User newHead = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // 3. Logic: Check if this user is already head of ANOTHER department
-        // (We don't want one person leading two departments)
+        // 3. Logic: Check if New Head is already a head of ANOTHER department
         if (departmentRepository.findByHeadUser(newHead).isPresent()) {
             Department existingDept = departmentRepository.findByHeadUser(newHead).get();
             if (!existingDept.getId().equals(deptId)) {
@@ -113,21 +111,25 @@ public class DepartmentController {
             }
         }
 
-        // 4. Handle the OLD Head (if exists) - Demote them to Employee?
-        // For now, let's keep it simple: we just overwrite the head.
-        // The old head remains in the department but loses the 'link' in the Department table.
-        // Optionally, you can change the old head's role to EMPLOYEE here.
+        // 4. === CRITICAL: Handle the OLD Head (Demotion Logic) ===
+        User currentHead = dept.getHeadUser();
 
-        // 5. Update the USER
+        // If there is an old head, and it's not the same person we are assigning
+        if (currentHead != null && !currentHead.getId().equals(newHead.getId())) {
+            currentHead.setRole(Role.EMPLOYEE); // Demote to Employee
+            userRepository.save(currentHead);
+        }
+
+        // 5. Update the NEW Head (Promotion Logic)
         newHead.setRole(Role.DEPT_HEAD);
-        newHead.setDepartment(dept);
+        newHead.setDepartment(dept); // Ensure they are assigned to this dept (if not already)
         userRepository.save(newHead);
 
-        // 6. Update the DEPARTMENT (Crucial Step missing previously)
+        // 6. Update the Department Table
         dept.setHeadUser(newHead);
         departmentRepository.save(dept);
 
-        return ResponseEntity.ok("Department Head updated successfully to: " + newHead.getUsername());
+        return ResponseEntity.ok("Success: " + currentHead.getUsername() + " was demoted, and " + newHead.getUsername() + " is the new Head.");
     }
 
     // Get all users in a specific department
