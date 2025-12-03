@@ -10,6 +10,11 @@ import com.sribalajiads.task_management.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.sribalajiads.task_management.entity.TaskHistory;
+import com.sribalajiads.task_management.repository.TaskHistoryRepository;
+import com.sribalajiads.task_management.dto.TaskHistoryDTO;
+import java.util.stream.Collectors;
+
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -36,6 +41,9 @@ public class TaskService {
 
     @Autowired
     private FileStorageService fileStorageService;
+
+    @Autowired
+    private TaskHistoryRepository taskHistoryRepository;
 
 
     // Now accepts MultipartFile
@@ -69,13 +77,20 @@ public class TaskService {
         task.setAssignee(assignee);
         task.setStatus(TaskStatus.PENDING);
 
-        // 5. NEW LOGIC: Handle Attachment File
+        // 5. Handle Attachment File
         if (file != null && !file.isEmpty()) {
             String fileName = fileStorageService.storeFile(file);
             task.setAttachmentUrl(fileName); // Save Creator's file path
         }
 
-        return taskRepository.save(task);
+        Task savedTask = taskRepository.save(task);
+
+        // LOG HISTORY: CREATED
+        taskHistoryRepository.save(new TaskHistory(
+                savedTask, savedTask.getCreator(), "CREATED", "Task assigned to " + assignee.getUsername(), savedTask.getAttachmentUrl()
+        ));
+
+        return savedTask;
     }
 
 
@@ -149,6 +164,11 @@ public class TaskService {
 
         task.setStatus(TaskStatus.IN_PROGRESS);
         taskRepository.save(task);
+
+        // LOG HISTORY: STARTED
+        taskHistoryRepository.save(new TaskHistory(
+                task, currentUser, "STARTED", "Task status changed to In Progress", null
+        ));
     }
 
     // 2. Submit Task Logic
@@ -181,11 +201,15 @@ public class TaskService {
         // For now, we store the filename
         task.setProofUrl(fileName);
         task.setStatus(TaskStatus.SUBMITTED);
-
         taskRepository.save(task);
+
+        // LOG HISTORY: SUBMITTED (Snapshot of this specific proof)
+        taskHistoryRepository.save(new TaskHistory(
+                task, currentUser, "SUBMITTED", "Task submitted for review", fileName
+        ));
     }
 
-    public void reviewTask(Long taskId, String reviewerEmail, String action) {
+    public void reviewTask(Long taskId, String reviewerEmail, String action,  String comment) {
         // 1. Fetch Task
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Task not found"));
@@ -205,20 +229,46 @@ public class TaskService {
             throw new RuntimeException("Invalid Action: Task is not in SUBMITTED state yet.");
         }
 
+        String historyAction;
+        String historyComment = (comment != null) ? comment : "No comments";
+
         // 5. Apply Logic
         if ("ACCEPT".equalsIgnoreCase(action)) {
             task.setStatus(TaskStatus.COMPLETED);
+            historyAction = "ACCEPTED";
         }
         else if ("REJECT".equalsIgnoreCase(action)) {
-            task.setStatus(TaskStatus.PENDING); // Send back to start
-            // Optional: You could add a 'rejectionReason' field to the task entity later
+            // REJECTION LOGIC:
+            // Move status back to PENDING so Employee can see "Start" or "Submit" again.
+            // Or move to IN_PROGRESS directly. PENDING is safer as it alerts the user.
+            task.setStatus(TaskStatus.PENDING);
+            historyAction = "REJECTED";
         }
         else {
             throw new RuntimeException("Invalid Action: Must be 'ACCEPT' or 'REJECT'.");
         }
 
         taskRepository.save(task);
+
+        // LOG HISTORY: REVIEW (With Comment)
+        taskHistoryRepository.save(new TaskHistory(
+                task, reviewer, historyAction, historyComment, null
+        ));
     }
 
+    // 5. Get Task History
+    public List<TaskHistoryDTO> getTaskHistory(Long taskId) {
+        List<TaskHistory> historyList = taskHistoryRepository.findByTaskIdOrderByTimestampDesc(taskId);
+
+        return historyList.stream()
+                .map(h -> new TaskHistoryDTO(
+                        h.getActionBy().getUsername(),
+                        h.getActionType(),
+                        h.getComment(),
+                        h.getFileUrl(),
+                        h.getTimestamp()
+                ))
+                .collect(Collectors.toList());
+    }
 
 }

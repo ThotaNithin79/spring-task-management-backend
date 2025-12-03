@@ -18,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.MediaType;
 
 import com.sribalajiads.task_management.dto.ReviewTaskRequest;
+import com.sribalajiads.task_management.dto.TaskHistoryDTO;
 
 @RestController
 @RequestMapping("/api/v1/tasks")
@@ -104,13 +105,21 @@ public class TaskController {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             String email = auth.getName();
 
-            taskService.reviewTask(id, email, request.getAction());
+            // Pass the comment to service
+            taskService.reviewTask(id, email, request.getAction(), request.getComment());
 
             String message = "Task " + request.getAction().toLowerCase() + "ed successfully.";
             return ResponseEntity.ok(message);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    // 4. NEW: Get Task History (Audit Trail)
+    @GetMapping("/{id}/history")
+    public ResponseEntity<List<TaskHistoryDTO>> getTaskHistory(@PathVariable Long id) {
+        List<TaskHistoryDTO> history = taskService.getTaskHistory(id);
+        return ResponseEntity.ok(history);
     }
 
 }
