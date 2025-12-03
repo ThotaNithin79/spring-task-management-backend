@@ -31,5 +31,9 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );
+
+    // Find tasks where user is Creator OR Assignee
+    // Used for Department Heads so they can see their own work AND their team's work
+    List<Task> findByCreatorIdOrAssigneeId(Long creatorId, Long assigneeId);
 }
 

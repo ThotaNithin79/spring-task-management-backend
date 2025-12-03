@@ -98,26 +98,29 @@ public class TaskService {
 
 
     public List<TaskResponseDTO> getTasksForUser(String userEmail) {
-        // 1. Get current user
         User currentUser = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         List<Task> tasks;
 
-        // 2. Filter Logic (The "Secret" Logic)
         if (currentUser.getRole() == Role.SUPER_ADMIN) {
+            // Admin sees ALL tasks
             tasks = taskRepository.findAll();
         }
         else if (currentUser.getRole() == Role.DEPT_HEAD) {
-            // Only tasks created by this Head
-            tasks = taskRepository.findByCreatorId(currentUser.getId());
+            // Head sees:
+            // 1. Tasks they created (Managing their team)
+            // 2. Tasks assigned TO them (Tasks from Super Admin)
+            tasks = taskRepository.findByCreatorIdOrAssigneeId(currentUser.getId(), currentUser.getId());
+
+            // Note: They still CANNOT see "Secret Tasks" created by Admin for their employees,
+            // because neither the creatorId nor assigneeId will match the Head's ID.
         }
         else {
-            // Only tasks assigned to this Employee
+            // Employee sees only tasks assigned TO them
             tasks = taskRepository.findByAssigneeId(currentUser.getId());
         }
 
-        // 3. Convert Entity List -> DTO List
         return tasks.stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
