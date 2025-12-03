@@ -6,6 +6,7 @@ import com.sribalajiads.task_management.entity.Role;
 import com.sribalajiads.task_management.entity.User;
 import com.sribalajiads.task_management.repository.DepartmentRepository;
 import com.sribalajiads.task_management.repository.UserRepository;
+import com.sribalajiads.task_management.service.DepartmentService;
 
 import com.sribalajiads.task_management.dto.UserResponseDTO;
 import java.util.stream.Collectors;
@@ -29,6 +30,9 @@ public class DepartmentController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private DepartmentService departmentService;
 
     // 1. Create Department (SUPER_ADMIN Only)
     @PreAuthorize("hasRole('SUPER_ADMIN')")
@@ -157,6 +161,20 @@ public class DepartmentController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(userDTOs);
+    }
+
+    // EDIT DEPARTMENT DETAILS (Name, Desc, Head)
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateDepartment(
+            @PathVariable Long id,
+            @RequestBody DepartmentDTO request) {
+        try {
+            departmentService.updateDepartment(id, request);
+            return ResponseEntity.ok("Department updated successfully.");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
 }
