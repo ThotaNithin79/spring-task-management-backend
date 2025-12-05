@@ -20,6 +20,9 @@ import org.springframework.http.MediaType;
 import com.sribalajiads.task_management.dto.ReviewTaskRequest;
 import com.sribalajiads.task_management.dto.TaskHistoryDTO;
 
+import java.time.LocalDate;
+import org.springframework.format.annotation.DateTimeFormat;
+
 @RestController
 @RequestMapping("/api/v1/tasks")
 public class TaskController {
@@ -56,11 +59,15 @@ public class TaskController {
     }
 
     @GetMapping
-    public ResponseEntity<List<TaskResponseDTO>> getTasks() {
+    public ResponseEntity<List<TaskResponseDTO>> getTasks(
+            @RequestParam(value = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(value = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email = auth.getName();
 
-        List<TaskResponseDTO> tasks = taskService.getTasksForUser(email);
+        // Pass dates (can be null) to service
+        List<TaskResponseDTO> tasks = taskService.getTasksForUser(email, startDate, endDate);
 
         return ResponseEntity.ok(tasks);
     }

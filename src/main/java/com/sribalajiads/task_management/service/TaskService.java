@@ -35,6 +35,10 @@ import java.util.Objects;
 import com.sribalajiads.task_management.service.FileStorageService;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+
 @Service
 public class TaskService {
 
@@ -99,28 +103,41 @@ public class TaskService {
     }
 
 
-    public List<TaskResponseDTO> getTasksForUser(String userEmail) {
+    // Accepts optional Date Range
+    public List<TaskResponseDTO> getTasksForUser(String userEmail, LocalDate startDate, LocalDate endDate) {
         User currentUser = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         List<Task> tasks;
+        boolean isDateFilterApplied = (startDate != null && endDate != null);
+
+        // Convert LocalDate to LocalDateTime boundaries if filters are present
+        LocalDateTime startDateTime = isDateFilterApplied ? startDate.atStartOfDay() : null;
+        LocalDateTime endDateTime = isDateFilterApplied ? endDate.atTime(LocalTime.MAX) : null;
 
         if (currentUser.getRole() == Role.SUPER_ADMIN) {
-            // Admin sees ALL tasks
-            tasks = taskRepository.findAll();
+            if (isDateFilterApplied) {
+                tasks = taskRepository.findAllByCreatedAtBetween(startDateTime, endDateTime);
+            } else {
+                tasks = taskRepository.findAll();
+            }
         }
         else if (currentUser.getRole() == Role.DEPT_HEAD) {
-            // Head sees:
-            // 1. Tasks they created (Managing their team)
-            // 2. Tasks assigned TO them (Tasks from Super Admin)
-            tasks = taskRepository.findByCreatorIdOrAssigneeId(currentUser.getId(), currentUser.getId());
-
-            // Note: They still CANNOT see "Secret Tasks" created by Admin for their employees,
-            // because neither the creatorId nor assigneeId will match the Head's ID.
+            if (isDateFilterApplied) {
+                tasks = taskRepository.findByCreatorIdOrAssigneeIdAndDateRange(
+                        currentUser.getId(), startDateTime, endDateTime);
+            } else {
+                tasks = taskRepository.findByCreatorIdOrAssigneeId(currentUser.getId(), currentUser.getId());
+            }
         }
         else {
-            // Employee sees only tasks assigned TO them
-            tasks = taskRepository.findByAssigneeId(currentUser.getId());
+            // Employee
+            if (isDateFilterApplied) {
+                tasks = taskRepository.findByAssigneeIdAndCreatedAtBetween(
+                        currentUser.getId(), startDateTime, endDateTime);
+            } else {
+                tasks = taskRepository.findByAssigneeId(currentUser.getId());
+            }
         }
 
         return tasks.stream()

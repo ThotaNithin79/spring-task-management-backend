@@ -11,6 +11,10 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import java.time.LocalDateTime;
+
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
     // For Employees: See tasks assigned TO them
@@ -35,5 +39,19 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     // Find tasks where user is Creator OR Assignee
     // Used for Department Heads so they can see their own work AND their team's work
     List<Task> findByCreatorIdOrAssigneeId(Long creatorId, Long assigneeId);
+
+    // 1. For Super Admin (Filter All Tasks by Date)
+    List<Task> findAllByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
+
+    // 2. For Employees (Filter Assigned Tasks by Date)
+    List<Task> findByAssigneeIdAndCreatedAtBetween(Long assigneeId, LocalDateTime start, LocalDateTime end);
+
+    // 3. For Dept Heads (Filter Created OR Assigned Tasks by Date)
+    @Query("SELECT t FROM Task t WHERE (t.creator.id = :userId OR t.assignee.id = :userId) AND t.createdAt BETWEEN :start AND :end")
+    List<Task> findByCreatorIdOrAssigneeIdAndDateRange(
+            @Param("userId") Long userId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
 }
 
