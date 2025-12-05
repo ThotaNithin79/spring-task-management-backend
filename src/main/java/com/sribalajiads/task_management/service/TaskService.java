@@ -17,6 +17,8 @@ import com.sribalajiads.task_management.entity.TaskHistory;
 import com.sribalajiads.task_management.repository.TaskHistoryRepository;
 import com.sribalajiads.task_management.dto.TaskHistoryDTO;
 import java.util.stream.Collectors;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 import org.springframework.web.multipart.MultipartFile;
 
@@ -329,6 +331,41 @@ public class TaskService {
         }
 
         return taskRepository.save(task);
+    }
+
+    // TASK DELETE (Allowed only within 5 mins AND if not started)
+    public void deleteTask(Long taskId, String requesterEmail) {
+        // 1. Fetch Task
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        // 2. Fetch Requester
+        User currentUser = userRepository.findByEmail(requesterEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 3. CHECK 1: Only Creator can delete
+        if (!task.getCreator().getId().equals(currentUser.getId())) {
+            throw new RuntimeException("Access Denied: Only the creator can delete this task.");
+        }
+
+        // 4. CHECK 2: Status must be PENDING
+        if (task.getStatus() != TaskStatus.PENDING) {
+            throw new RuntimeException("Action Failed: Cannot delete a task that has already started or been submitted.");
+        }
+
+        // 5. CHECK 3: Time Constraint (5 Minutes)
+        LocalDateTime now = LocalDateTime.now();
+        long minutesElapsed = ChronoUnit.MINUTES.between(task.getCreatedAt(), now);
+
+        if (minutesElapsed > 5) {
+            throw new RuntimeException("Delete Time Expired: You can only delete a task within 5 minutes of creation.");
+        }
+
+        // 6. Optional: Delete physical attachment file if exists
+        // (If you want to clean up storage, you can add file deletion logic here using Files.delete(path))
+
+        // 7. Delete from Database
+        taskRepository.delete(task);
     }
 
 }

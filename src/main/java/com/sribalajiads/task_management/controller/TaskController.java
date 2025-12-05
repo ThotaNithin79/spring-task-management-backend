@@ -144,4 +144,20 @@ public class TaskController {
         }
     }
 
+    // DELETE TASK
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DEPT_HEAD')")
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteTask(@PathVariable Long id) {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String email = auth.getName();
+
+            taskService.deleteTask(id, email);
+
+            return ResponseEntity.ok("Task deleted successfully.");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
 }
