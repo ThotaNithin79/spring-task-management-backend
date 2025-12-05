@@ -385,4 +385,25 @@ public class TaskService {
         taskRepository.delete(task);
     }
 
+    // Get Tasks by Department (Admin View)
+    public List<TaskResponseDTO> getTasksByDepartment(Long deptId, LocalDate startDate, LocalDate endDate) {
+
+        List<Task> tasks;
+        boolean isDateFilterApplied = (startDate != null && endDate != null);
+
+        // Convert Dates
+        LocalDateTime startDateTime = isDateFilterApplied ? startDate.atStartOfDay() : null;
+        LocalDateTime endDateTime = isDateFilterApplied ? endDate.atTime(LocalTime.MAX) : null;
+
+        if (isDateFilterApplied) {
+            tasks = taskRepository.findByAssigneeDepartmentIdAndCreatedAtBetween(deptId, startDateTime, endDateTime);
+        } else {
+            tasks = taskRepository.findByAssigneeDepartmentId(deptId);
+        }
+
+        return tasks.stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+    }
+
 }

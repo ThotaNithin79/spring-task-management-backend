@@ -19,6 +19,11 @@ import org.springframework.web.bind.annotation.*;
 import com.sribalajiads.task_management.dto.DepartmentResponseDTO;
 import java.util.stream.Collectors;
 
+import com.sribalajiads.task_management.dto.TaskResponseDTO;
+import com.sribalajiads.task_management.service.TaskService;
+import java.time.LocalDate;
+import org.springframework.format.annotation.DateTimeFormat;
+
 import java.util.List;
 
 @RestController
@@ -33,6 +38,9 @@ public class DepartmentController {
 
     @Autowired
     private DepartmentService departmentService;
+
+    @Autowired
+    private TaskService taskService;
 
     // 1. Create Department (SUPER_ADMIN Only)
     @PreAuthorize("hasRole('SUPER_ADMIN')")
@@ -175,6 +183,26 @@ public class DepartmentController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    // Get All Tasks for a Specific Department
+    // Filters: Optional Start/End Date
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @GetMapping("/{id}/tasks")
+    public ResponseEntity<List<TaskResponseDTO>> getDepartmentTasks(
+            @PathVariable Long id,
+            @RequestParam(value = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(value = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        // 1. Check if Dept exists
+        if (!departmentRepository.existsById(id)) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        // 2. Fetch Tasks
+        List<TaskResponseDTO> tasks = taskService.getTasksByDepartment(id, startDate, endDate);
+
+        return ResponseEntity.ok(tasks);
     }
 
 }

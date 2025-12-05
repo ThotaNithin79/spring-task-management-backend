@@ -53,5 +53,15 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end
     );
+
+    // 1. Fetch all tasks for a specific department (via Assignee)
+    List<Task> findByAssigneeDepartmentId(Long departmentId);
+
+    // 2. Fetch all tasks for a specific department with Date Filter
+    List<Task> findByAssigneeDepartmentIdAndCreatedAtBetween(
+            Long departmentId,
+            LocalDateTime start,
+            LocalDateTime end
+    );
 }
 
