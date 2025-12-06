@@ -196,41 +196,46 @@ public class TaskService {
         ));
     }
 
-    // 2. Submit Task Logic
-    public void submitTask(Long taskId, String userEmail, MultipartFile file) {
+    // Submit Task (Now accepts optional message)
+    public void submitTask(Long taskId, String userEmail, MultipartFile file, String message) {
+        // 1. Fetch Data
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new RuntimeException("Task not found"));
 
         User currentUser = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Validate: Only Assignee can submit
+        // 2. Validate Assignee
         if (!task.getAssignee().getId().equals(currentUser.getId())) {
             throw new RuntimeException("Access Denied: You are not the assignee of this task.");
         }
 
-        // Validate: Status must be IN_PROGRESS
-        if (task.getStatus() != TaskStatus.IN_PROGRESS) {
-            throw new RuntimeException("Invalid Action: Task must be IN PROGRESS before submitting.");
+        // 3. Validate Status (Must be IN_PROGRESS or PENDING if previously rejected)
+        if (task.getStatus() != TaskStatus.IN_PROGRESS && task.getStatus() != TaskStatus.PENDING) {
+            throw new RuntimeException("Task must be In Progress or Pending (Rejected) to submit.");
         }
 
-        // Validate: File exists
+        // 4. Validate File
         if (file == null || file.isEmpty()) {
             throw new RuntimeException("Error: You must upload a proof file to submit the task.");
         }
 
-        // Store File and Get Path/URL
+        // 5. Store File
         String fileName = fileStorageService.storeFile(file);
 
-        // In a real app, this would be a full URL (e.g., http://localhost:8080/download/...)
-        // For now, we store the filename
+        // 6. Update Task
         task.setProofUrl(fileName);
         task.setStatus(TaskStatus.SUBMITTED);
         taskRepository.save(task);
 
-        // LOG HISTORY: SUBMITTED (Snapshot of this specific proof)
+        // 7. Determine History Comment
+        String historyComment = (message != null && !message.trim().isEmpty())
+                ? message
+                : "Task submitted for review";
+
+        // 8. Log History (SUBMITTED)
         taskHistoryRepository.save(new TaskHistory(
-                task, currentUser, "SUBMITTED", "Task submitted for review", fileName
+                task, currentUser, "SUBMITTED", historyComment, fileName
         ));
     }
 

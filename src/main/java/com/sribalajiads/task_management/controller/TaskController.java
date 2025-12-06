@@ -86,17 +86,20 @@ public class TaskController {
         }
     }
 
-    // 2. Submit Task (With File Upload)
-    // 2. Submit Task (With File Upload)
-    @PatchMapping(value = "/{id}/submit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    // Submit Task (With File + Optional Message)
+    @PostMapping(value = "/{id}/submit", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> submitTask(
             @PathVariable Long id,
-            @RequestParam("file") MultipartFile file) {
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "message", required = false) String message // Optional
+    ) {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             String email = auth.getName();
 
-            taskService.submitTask(id, email, file);
+            // Pass the message to service
+            taskService.submitTask(id, email, file, message);
+
             return ResponseEntity.ok("Task submitted successfully. Pending review.");
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
