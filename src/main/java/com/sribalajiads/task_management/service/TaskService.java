@@ -406,4 +406,35 @@ public class TaskService {
                 .collect(Collectors.toList());
     }
 
+
+    // NEW FEATURE: Get Tasks for specific Employee (Admin View)
+    public List<TaskResponseDTO> getTasksByEmployeeId(Long employeeId, LocalDate startDate, LocalDate endDate) {
+
+        // 1. Verify User exists
+        if (!userRepository.existsById(employeeId)) {
+            throw new RuntimeException("User not found");
+        }
+
+        List<Task> tasks;
+        boolean isDateFilterApplied = (startDate != null && endDate != null);
+
+        // 2. Prepare Date Boundaries
+        LocalDateTime startDateTime = isDateFilterApplied ? startDate.atStartOfDay() : null;
+        LocalDateTime endDateTime = isDateFilterApplied ? endDate.atTime(LocalTime.MAX) : null;
+
+        // 3. Fetch Tasks using existing Repository methods
+        if (isDateFilterApplied) {
+            // Reuse repository method from Task 16
+            tasks = taskRepository.findByAssigneeIdAndCreatedAtBetween(employeeId, startDateTime, endDateTime);
+        } else {
+            // Reuse repository method from Task 10
+            tasks = taskRepository.findByAssigneeId(employeeId);
+        }
+
+        // 4. Map to DTO
+        return tasks.stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+    }
+
 }

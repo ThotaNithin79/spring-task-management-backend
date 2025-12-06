@@ -8,6 +8,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import com.sribalajiads.task_management.dto.TaskResponseDTO;
+import com.sribalajiads.task_management.service.TaskService;
+import java.time.LocalDate;
+import org.springframework.format.annotation.DateTimeFormat;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -15,6 +20,9 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private TaskService taskService;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DEPT_HEAD')")
@@ -45,6 +53,23 @@ public class UserController {
         } catch (RuntimeException e) {
             // Return 400 Bad Request for other errors (like User not found)
             return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // Get All Tasks assigned to a specific Employee
+    // Viewable by: SUPER_ADMIN
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @GetMapping("/{id}/tasks")
+    public ResponseEntity<List<TaskResponseDTO>> getTasksByEmployee(
+            @PathVariable Long id,
+            @RequestParam(value = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(value = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        try {
+            List<TaskResponseDTO> tasks = taskService.getTasksByEmployeeId(id, startDate, endDate);
+            return ResponseEntity.ok(tasks);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
         }
     }
 }
