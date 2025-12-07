@@ -54,6 +54,9 @@ public class TaskService {
     @Autowired
     private TaskHistoryRepository taskHistoryRepository;
 
+    @Autowired
+    private EmailService emailService;
+
 
     // Now accepts MultipartFile
     public Task createTask(CreateTaskRequest request, String creatorEmail, MultipartFile file) {
@@ -98,6 +101,17 @@ public class TaskService {
         taskHistoryRepository.save(new TaskHistory(
                 savedTask, savedTask.getCreator(), "CREATED", "Task assigned to " + assignee.getUsername(), savedTask.getAttachmentUrl()
         ));
+
+        // === Send Email Notification ===
+        if (assignee.isEmailNotificationsEnabled()) {
+            emailService.sendTaskAssignmentEmail(
+                    assignee.getEmail(),
+                    assignee.getUsername(),
+                    savedTask.getTitle(),
+                    creator.getUsername(),
+                    savedTask.getDescription()
+            );
+        }
 
         return savedTask;
     }

@@ -29,6 +29,9 @@ public class User {
     @Column(name = "is_active")
     private boolean isActive = true;
 
+    @Column(name = "email_notifications_enabled")
+    private boolean emailNotificationsEnabled = true;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -76,4 +79,10 @@ public class User {
 
     public Department getDepartment() { return department; }
     public void setDepartment(Department department) { this.department = department; }
+
+    // Getter and Setter
+    public boolean isEmailNotificationsEnabled() { return emailNotificationsEnabled; }
+    public void setEmailNotificationsEnabled(boolean emailNotificationsEnabled) {
+        this.emailNotificationsEnabled = emailNotificationsEnabled;
+    }
 }

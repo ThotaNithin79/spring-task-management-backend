@@ -72,4 +72,21 @@ public class UserController {
             return ResponseEntity.badRequest().build();
         }
     }
+
+    // UPDATE NOTIFICATION PREFERENCE
+    // Accessible by: Any authenticated user (changing their own setting)
+    @PatchMapping("/profile/notifications")
+    public ResponseEntity<?> updateNotificationPreference(@RequestParam("enabled") boolean enabled) {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String email = auth.getName();
+
+            userService.updateNotificationPreference(email, enabled);
+
+            String status = enabled ? "Enabled" : "Disabled";
+            return ResponseEntity.ok("Email notifications " + status + " successfully.");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }

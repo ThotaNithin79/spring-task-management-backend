@@ -109,4 +109,13 @@ public class UserService {
         // 3. Delete the User
         userRepository.delete(user);
     }
+
+    // Toggle Email Notifications
+    public void updateNotificationPreference(String email, boolean enabled) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        user.setEmailNotificationsEnabled(enabled);
+        userRepository.save(user);
+    }
 }
