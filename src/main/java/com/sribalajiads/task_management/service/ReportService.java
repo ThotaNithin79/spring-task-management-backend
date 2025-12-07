@@ -8,6 +8,9 @@ import com.sribalajiads.task_management.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.sribalajiads.task_management.entity.Department;
+import com.sribalajiads.task_management.repository.DepartmentRepository;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -21,6 +24,9 @@ public class ReportService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private DepartmentRepository departmentRepository;
 
     // Get stats for a specific User ID (For Admin/Head view)
     public TaskStatsDTO getStatsByUserId(Long userId, LocalDate startDate, LocalDate endDate) {
@@ -67,5 +73,42 @@ public class ReportService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return generateStatsForUser(user, startDate, endDate);
+    }
+
+    // Get Stats for a specific Department
+    public TaskStatsDTO getDepartmentStats(Long deptId, LocalDate startDate, LocalDate endDate) {
+        // 1. Verify Department exists
+        if (!departmentRepository.existsById(deptId)) {
+            throw new RuntimeException("Department not found");
+        }
+
+        // 2. Prepare Date Boundaries
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        // 3. Run Query
+        List<Object[]> results = taskRepository.getTaskCountByStatusForDepartment(
+                deptId, startDateTime, endDateTime);
+
+        // 4. Map Results to DTO (Reusing similar logic from Employee stats)
+        TaskStatsDTO stats = new TaskStatsDTO();
+        long totalTasks = 0;
+
+        for (Object[] row : results) {
+            TaskStatus status = (TaskStatus) row[0];
+            Long count = (Long) row[1];
+            totalTasks += count;
+
+            switch (status) {
+                case PENDING -> stats.setPending(count);
+                case IN_PROGRESS -> stats.setInProgress(count);
+                case SUBMITTED -> stats.setSubmitted(count);
+                case COMPLETED -> stats.setCompleted(count);
+                case REJECTED -> stats.setRejected(count);
+            }
+        }
+        stats.setTotal(totalTasks);
+
+        return stats;
     }
 }

@@ -24,6 +24,13 @@ import com.sribalajiads.task_management.service.TaskService;
 import java.time.LocalDate;
 import org.springframework.format.annotation.DateTimeFormat;
 
+import com.sribalajiads.task_management.dto.TaskStatsDTO;
+import com.sribalajiads.task_management.service.ReportService;
+import java.time.LocalDate;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 import java.util.List;
 
 @RestController
@@ -41,6 +48,9 @@ public class DepartmentController {
 
     @Autowired
     private TaskService taskService;
+
+    @Autowired
+    private ReportService reportService;
 
     // 1. Create Department (SUPER_ADMIN Only)
     @PreAuthorize("hasRole('SUPER_ADMIN')")
@@ -203,6 +213,37 @@ public class DepartmentController {
         List<TaskResponseDTO> tasks = taskService.getTasksByDepartment(id, startDate, endDate);
 
         return ResponseEntity.ok(tasks);
+    }
+
+    // Get Department Stats (Total, Pending, Completed, etc.)
+    // Security: Admin can see all. Head can only see THEIR OWN dept.
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DEPT_HEAD')")
+    @GetMapping("/{id}/stats")
+    public ResponseEntity<?> getDepartmentStats(
+            @PathVariable Long id,
+            @RequestParam("startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+
+        try {
+            // SECURITY CHECK
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String email = auth.getName();
+
+            // We need to check if the requester is a HEAD and if they are requesting WRONG dept
+            User requester = userRepository.findByEmail(email).orElseThrow();
+
+            if (requester.getRole() == Role.DEPT_HEAD) {
+                if (requester.getDepartment() == null || !requester.getDepartment().getId().equals(id)) {
+                    return ResponseEntity.status(403).body("Access Denied: You can only view stats for your own department.");
+                }
+            }
+
+            TaskStatsDTO stats = reportService.getDepartmentStats(id, startDate, endDate);
+            return ResponseEntity.ok(stats);
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
 }

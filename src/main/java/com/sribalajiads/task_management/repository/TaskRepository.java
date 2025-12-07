@@ -63,5 +63,16 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             LocalDateTime start,
             LocalDateTime end
     );
+
+    // Aggregation Query for Department Stats
+    @Query("SELECT t.status, COUNT(t) FROM Task t " +
+            "WHERE t.assignee.department.id = :deptId " +
+            "AND t.createdAt BETWEEN :startDate AND :endDate " +
+            "GROUP BY t.status")
+    List<Object[]> getTaskCountByStatusForDepartment(
+            @Param("deptId") Long deptId,
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
 }
 
