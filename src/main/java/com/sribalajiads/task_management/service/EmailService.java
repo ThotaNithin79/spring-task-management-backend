@@ -62,4 +62,31 @@ public class EmailService {
             System.err.println("⚠️ Failed to send notification email: " + e.getMessage());
         }
     }
+
+    @Async
+    public void sendTaskSubmissionEmail(String toEmail, String creatorName, String taskTitle, String assigneeName, String submitMessage) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom("noreply@sribalajiads.com");
+            message.setTo(toEmail);
+            message.setSubject("Task Submitted: " + taskTitle);
+
+            String messageContent = (submitMessage != null && !submitMessage.isBlank())
+                    ? "\"" + submitMessage + "\""
+                    : "No specific message provided.";
+
+            String body = "Hello " + creatorName + ",\n\n" +
+                    "User " + assigneeName + " has submitted the task: \"" + taskTitle + "\".\n\n" +
+                    "Submitter Note: " + messageContent + "\n\n" +
+                    "Please log in to the portal to review the proof and Accept or Reject the work.\n\n" +
+                    "Regards,\nTask Management System";
+
+            message.setText(body);
+
+            mailSender.send(message);
+            System.out.println("📧 Submission Notification sent to " + toEmail);
+        } catch (Exception e) {
+            System.err.println("⚠️ Failed to send submission email: " + e.getMessage());
+        }
+    }
 }

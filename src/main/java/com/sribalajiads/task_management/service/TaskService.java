@@ -251,6 +251,20 @@ public class TaskService {
         taskHistoryRepository.save(new TaskHistory(
                 task, currentUser, "SUBMITTED", historyComment, fileName
         ));
+
+        // === end Email to Creator ===
+        User creator = task.getCreator();
+
+        // Check if Creator wants emails
+        if (creator.isEmailNotificationsEnabled()) {
+            emailService.sendTaskSubmissionEmail(
+                    creator.getEmail(),       // To: Admin/Head
+                    creator.getUsername(),    // Creator Name
+                    task.getTitle(),          // Task Title
+                    currentUser.getUsername(),// Assignee Name
+                    message                   // The optional message entered by Employee
+            );
+        }
     }
 
     public void reviewTask(Long taskId, String reviewerEmail, String action,  String comment) {
