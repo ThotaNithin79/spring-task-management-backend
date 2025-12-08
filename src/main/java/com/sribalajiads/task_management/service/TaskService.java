@@ -470,4 +470,15 @@ public class TaskService {
                 .collect(Collectors.toList());
     }
 
+    // SEARCH FEATURE (Super Admin)
+    public List<TaskResponseDTO> searchTasksByTitle(String titleKeyword) {
+        // Fetch tasks matching the title
+        List<Task> tasks = taskRepository.findByTitleContainingIgnoreCase(titleKeyword);
+
+        // Convert to DTOs using your existing helper method
+        return tasks.stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+    }
+
 }

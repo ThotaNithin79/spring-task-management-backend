@@ -74,5 +74,8 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );
+
+    // SEARCH: Find tasks where title contains the keyword (Case Insensitive)
+    List<Task> findByTitleContainingIgnoreCase(String title);
 }
 

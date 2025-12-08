@@ -170,4 +170,17 @@ public class TaskController {
         }
     }
 
+    // SEARCH TASKS (Super Admin Only)
+    // URL: /api/v1/tasks/search?title=Bug
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @GetMapping("/search")
+    public ResponseEntity<List<TaskResponseDTO>> searchTasks(@RequestParam("title") String title) {
+        try {
+            List<TaskResponseDTO> tasks = taskService.searchTasksByTitle(title);
+            return ResponseEntity.ok(tasks);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
 }
