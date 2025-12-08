@@ -23,6 +23,9 @@ public class UserService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private EmailService emailService;
+
     // Use Transactional to ensure both User and Department tables update together
     @Transactional
     public User createUser(CreateUserRequest request, String requesterEmail) {
@@ -41,6 +44,11 @@ public class UserService {
         User newUser = new User();
         newUser.setUsername(request.getUsername());
         newUser.setEmail(request.getEmail());
+
+        // Capture the Raw Password BEFORE encoding
+        String rawPassword = request.getPassword();
+
+        // Now encode it for the database
         newUser.setPassword(passwordEncoder.encode(request.getPassword()));
         newUser.setActive(true);
 
@@ -54,7 +62,7 @@ public class UserService {
                         .orElseThrow(() -> new RuntimeException("Department not found"));
                 newUser.setDepartment(dept);
 
-                // === FIX: DATA CONSISTENCY ===
+                // === DATA CONSISTENCY ===
                 // If Admin is creating a DEPT_HEAD, we must update the Department table
                 // to link this new user as the 'head_user_id'.
                 if (request.getRole() == Role.DEPT_HEAD) {
@@ -88,7 +96,19 @@ public class UserService {
             throw new RuntimeException("Access Denied: Employees cannot create users.");
         }
 
-        return userRepository.save(newUser);
+        // Save User to Database
+        User savedUser = userRepository.save(newUser);
+
+        // SEND MAIL
+        // We pass the 'rawPassword' so the user can actually read it and log in.
+        emailService.sendWelcomeEmail(
+                savedUser.getEmail(),
+                savedUser.getUsername(),
+                rawPassword,
+                requester.getUsername() // The Admin/Head name who created them
+        );
+
+        return savedUser;
     }
 
     // TASK 8: Graceful Deletion Logic

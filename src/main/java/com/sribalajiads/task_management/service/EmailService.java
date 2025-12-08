@@ -6,6 +6,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.Random;
 
@@ -15,6 +16,10 @@ public class EmailService {
 
     @Autowired
     private JavaMailSender mailSender;
+
+    // FIX: Read the sender email from application.properties
+    @Value("${spring.mail.username}")
+    private String fromEmail;
 
     public String generateOtp() {
         Random random = new Random();
@@ -87,6 +92,34 @@ public class EmailService {
             System.out.println("📧 Submission Notification sent to " + toEmail);
         } catch (Exception e) {
             System.err.println("⚠️ Failed to send submission email: " + e.getMessage());
+        }
+    }
+
+    @Async
+    public void sendWelcomeEmail(String toEmail, String username, String rawPassword, String creatorName) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+
+            // FIX: Use the dynamic variable instead of hardcoded string
+            message.setFrom(fromEmail);
+
+            message.setTo(toEmail);
+            message.setSubject("Welcome to Task Management System");
+
+            String body = "Hello " + username + ",\n\n" +
+                    "Your account has been successfully created by " + creatorName + ".\n\n" +
+                    "Here are your login credentials:\n" +
+                    "Email: " + toEmail + "\n" +
+                    "Password: " + rawPassword + "\n\n" +
+                    "Please log in and change your password immediately for security.\n\n" +
+                    "Regards,\nTask Management System";
+
+            message.setText(body);
+
+            mailSender.send(message);
+            System.out.println("📧 Welcome Email sent to " + toEmail + " from " + fromEmail);
+        } catch (Exception e) {
+            System.err.println("⚠️ Failed to send welcome email: " + e.getMessage());
         }
     }
 }
