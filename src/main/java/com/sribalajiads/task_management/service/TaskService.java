@@ -481,4 +481,72 @@ public class TaskService {
                 .collect(Collectors.toList());
     }
 
+    // SEARCH TASKS IN DEPARTMENT (Admin & Head)
+    public List<TaskResponseDTO> searchTasksInDepartment(Long deptId, String titleKeyword, String requesterEmail) {
+
+        // 1. Fetch Requester
+        User requester = userRepository.findByEmail(requesterEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 2. SECURITY CHECK: If requester is a Head, ensure they own this Dept
+        if (requester.getRole() == Role.DEPT_HEAD) {
+            if (requester.getDepartment() == null || !requester.getDepartment().getId().equals(deptId)) {
+                throw new RuntimeException("Access Denied: You can only search within your own department.");
+            }
+        }
+        // Super Admin skips this check (can search anywhere)
+
+        // 3. Perform Search
+        List<Task> tasks = taskRepository.findByAssigneeDepartmentIdAndTitleContainingIgnoreCase(deptId, titleKeyword);
+
+        // 4. Convert to DTOs
+        return tasks.stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+    }
+
+    // SEARCH TASKS FOR SPECIFIC EMPLOYEE (With 3-Level Security)
+    public List<TaskResponseDTO> searchTasksForEmployee(Long targetEmployeeId, String titleKeyword, String requesterEmail) {
+
+        // 1. Fetch Requester (Logged-in User)
+        User requester = userRepository.findByEmail(requesterEmail)
+                .orElseThrow(() -> new RuntimeException("Requester not found"));
+
+        // 2. Fetch Target Employee (Whose tasks are being searched)
+        User targetEmployee = userRepository.findById(targetEmployeeId)
+                .orElseThrow(() -> new RuntimeException("Target user not found"));
+
+        // 3. AUTHORIZATION LOGIC
+        boolean isAllowed = false;
+
+        // Case A: Self-Search (Employee searching their own tasks)
+        if (requester.getId().equals(targetEmployee.getId())) {
+            isAllowed = true;
+        }
+        // Case B: Super Admin (Can search anyone)
+        else if (requester.getRole() == Role.SUPER_ADMIN) {
+            isAllowed = true;
+        }
+        // Case C: Department Head (Can search members of SAME department)
+        else if (requester.getRole() == Role.DEPT_HEAD) {
+            if (requester.getDepartment() != null && targetEmployee.getDepartment() != null) {
+                if (requester.getDepartment().getId().equals(targetEmployee.getDepartment().getId())) {
+                    isAllowed = true;
+                }
+            }
+        }
+
+        if (!isAllowed) {
+            throw new RuntimeException("Access Denied: You do not have permission to search tasks for this user.");
+        }
+
+        // 4. Perform Search
+        List<Task> tasks = taskRepository.findByAssigneeIdAndTitleContainingIgnoreCase(targetEmployeeId, titleKeyword);
+
+        // 5. Map to DTOs
+        return tasks.stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+    }
+
 }

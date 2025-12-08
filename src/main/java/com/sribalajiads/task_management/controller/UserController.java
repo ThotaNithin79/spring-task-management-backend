@@ -89,4 +89,25 @@ public class UserController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
+    // Search Tasks for a Specific Employee
+    // URL: /api/v1/users/{id}/tasks/search?title=Fix
+    // Access: Admin, Dept Head (Same Dept), Employee (Self)
+    @GetMapping("/{id}/tasks/search")
+    public ResponseEntity<?> searchTasksForEmployee(
+            @PathVariable Long id,
+            @RequestParam("title") String title
+    ) {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String email = auth.getName();
+
+            List<TaskResponseDTO> tasks = taskService.searchTasksForEmployee(id, title, email);
+
+            return ResponseEntity.ok(tasks);
+        } catch (RuntimeException e) {
+            // Returns 400 if user not found or Access Denied
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }
