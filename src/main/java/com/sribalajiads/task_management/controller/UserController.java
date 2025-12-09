@@ -1,6 +1,8 @@
 package com.sribalajiads.task_management.controller;
 
 import com.sribalajiads.task_management.dto.CreateUserRequest;
+import com.sribalajiads.task_management.entity.User;
+import com.sribalajiads.task_management.repository.UserRepository;
 import com.sribalajiads.task_management.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +15,7 @@ import com.sribalajiads.task_management.service.TaskService;
 import java.time.LocalDate;
 import org.springframework.format.annotation.DateTimeFormat;
 import java.util.List;
+import com.sribalajiads.task_management.dto.UserResponseDTO;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -23,6 +26,9 @@ public class UserController {
 
     @Autowired
     private TaskService taskService;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'DEPT_HEAD')")
@@ -109,5 +115,29 @@ public class UserController {
             // Returns 400 if user not found or Access Denied
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    // GET CURRENT PROFILE (Who am I?)
+    // Used by Frontend on page load/refresh to get user details from Token
+    @GetMapping("/profile")
+    public ResponseEntity<UserResponseDTO> getMyProfile() {
+        // 1. Get Email from Security Context (Token)
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String email = auth.getName();
+
+        // 2. Fetch User
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 3. Convert to DTO
+        UserResponseDTO userDTO = new UserResponseDTO(
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getRole(),
+                user.isActive()
+        );
+
+        return ResponseEntity.ok(userDTO);
     }
 }

@@ -20,6 +20,9 @@ import com.sribalajiads.task_management.dto.PasswordResetRequest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.LocalDateTime;
 import java.util.Map;
+import com.sribalajiads.task_management.dto.UserResponseDTO;
+import com.sribalajiads.task_management.entity.User;
+import com.sribalajiads.task_management.repository.UserRepository;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -45,19 +48,30 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
-        // 1. Authenticate credentials with Spring Security
+        // 1. Authenticate credentials
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
 
-        // 2. If valid, load user details
+        // 2. Load User Details
         final UserDetails userDetails = userDetailsService.loadUserByUsername(request.getEmail());
-
-        // 3. Generate JWT Token
         final String jwt = jwtUtils.generateToken(userDetails);
 
-        // 4. Return token
-        return ResponseEntity.ok(new AuthResponse(jwt));
+        // 3. Fetch Full User Entity to get ID, Role, Dept, etc.
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 4. Create User DTO
+        UserResponseDTO userDTO = new UserResponseDTO(
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getRole(),
+                user.isActive()
+        );
+
+        // 5. Return Token + User Data
+        return ResponseEntity.ok(new AuthResponse(jwt, userDTO));
     }
 
     // 1. Forgot Password - Generate & Send OTP
