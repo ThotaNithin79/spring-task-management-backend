@@ -23,6 +23,10 @@ public class UserDetailsServiceImpl implements UserDetailsService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
+        if (!user.isActive()) {
+            throw new UsernameNotFoundException("Account is inactive");
+        }
+
         // Convert our Entity User to Spring Security User
         return new org.springframework.security.core.userdetails.User(
                 user.getEmail(),

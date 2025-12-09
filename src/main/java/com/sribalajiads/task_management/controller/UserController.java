@@ -140,4 +140,25 @@ public class UserController {
 
         return ResponseEntity.ok(userDTO);
     }
+
+    // ACTIVATE / DEACTIVATE USER
+    // URL: /api/v1/users/{id}/status?active=false
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<?> updateUserStatus(
+            @PathVariable Long id,
+            @RequestParam("active") boolean active
+    ) {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String adminEmail = auth.getName();
+
+            userService.updateUserStatus(id, active, adminEmail);
+
+            String statusMsg = active ? "Activated" : "Deactivated";
+            return ResponseEntity.ok("User account has been " + statusMsg + " successfully.");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }

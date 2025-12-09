@@ -138,4 +138,25 @@ public class UserService {
         user.setEmailNotificationsEnabled(enabled);
         userRepository.save(user);
     }
+
+    // UPDATE USER STATUS (Activate/Deactivate)
+    public void updateUserStatus(Long userId, boolean isActive, String adminEmail) {
+        // 1. Fetch Target User
+        User targetUser = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 2. Fetch Admin (Requester) to check for Self-Deactivation
+        User admin = userRepository.findByEmail(adminEmail)
+                .orElseThrow(() -> new RuntimeException("Admin not found"));
+
+        // 3. CONSTRAINT: Admin cannot deactivate themselves
+        if (targetUser.getId().equals(admin.getId())) {
+            throw new RuntimeException("Action Failed: You cannot deactivate your own account.");
+        }
+
+        // 4. Update Status
+        targetUser.setActive(isActive);
+        userRepository.save(targetUser);
+    }
+
 }
