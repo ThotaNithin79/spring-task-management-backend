@@ -15,6 +15,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
     // For Employees: See tasks assigned TO them
@@ -85,5 +88,31 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     // SEARCH WITHIN EMPLOYEE TASKS
     // Finds tasks where Assignee ID matches AND Title matches keyword
     List<Task> findByAssigneeIdAndTitleContainingIgnoreCase(Long assigneeId, String title);
+
+
+    // 1. Find ALL with Pagination (Super Admin)
+    Page<Task> findAll(Pageable pageable);
+
+    // 2. Find ALL with Date Filter + Pagination (Super Admin)
+    Page<Task> findAllByCreatedAtBetween(LocalDateTime start, LocalDateTime end, Pageable pageable);
+
+    // 3. Find by Assignee + Pagination (Employee)
+    Page<Task> findByAssigneeId(Long assigneeId, Pageable pageable);
+
+    // 4. Find by Assignee + Date Filter + Pagination (Employee)
+    Page<Task> findByAssigneeIdAndCreatedAtBetween(Long assigneeId, LocalDateTime start, LocalDateTime end, Pageable pageable);
+
+    // 5. Find for Dept Head (Creator OR Assignee) + Pagination
+    @Query("SELECT t FROM Task t WHERE t.creator.id = :userId OR t.assignee.id = :userId")
+    Page<Task> findByCreatorIdOrAssigneeId(@Param("userId") Long userId, Pageable pageable);
+
+    // 6. Find for Dept Head + Date + Pagination
+    @Query("SELECT t FROM Task t WHERE (t.creator.id = :userId OR t.assignee.id = :userId) AND t.createdAt BETWEEN :start AND :end")
+    Page<Task> findByCreatorIdOrAssigneeIdAndDateRange(
+            @Param("userId") Long userId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            Pageable pageable
+    );
 }
 

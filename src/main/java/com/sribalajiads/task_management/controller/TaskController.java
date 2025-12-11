@@ -8,6 +8,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import com.sribalajiads.task_management.dto.PaginatedResponse;
 
 import com.sribalajiads.task_management.entity.Task;
 import java.util.List;
@@ -182,5 +183,23 @@ public class TaskController {
             return ResponseEntity.badRequest().build();
         }
     }
+
+    // GET TASKS (PAGINATED) - Optimized for Heavy Data
+    // URL Example: /api/v1/tasks/paged?page=0&size=10
+    @GetMapping("/paged")
+    public ResponseEntity<PaginatedResponse<TaskResponseDTO>> getTasksPaged(
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size,
+            @RequestParam(value = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(value = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String email = auth.getName();
+
+        PaginatedResponse<TaskResponseDTO> response = taskService.getTasksPaginated(email, page, size, startDate, endDate);
+
+        return ResponseEntity.ok(response);
+    }
+
 
 }

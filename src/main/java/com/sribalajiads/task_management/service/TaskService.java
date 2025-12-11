@@ -10,6 +10,12 @@ import com.sribalajiads.task_management.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.sribalajiads.task_management.dto.PaginatedResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
@@ -547,6 +553,69 @@ public class TaskService {
         return tasks.stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
+    }
+
+    // GET TASKS PAGINATED (Handles Admin, Head, Employee + Date Filters)
+    public PaginatedResponse<TaskResponseDTO> getTasksPaginated(
+            String userEmail,
+            int pageNo,
+            int pageSize,
+            LocalDate startDate,
+            LocalDate endDate
+    ) {
+        User currentUser = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 1. Create Pageable (Sort by Latest Created First)
+        Pageable pageable = PageRequest.of(pageNo, pageSize, Sort.by("createdAt").descending());
+
+        // 2. Prepare Dates
+        boolean isDateFilterApplied = (startDate != null && endDate != null);
+        LocalDateTime startDateTime = isDateFilterApplied ? startDate.atStartOfDay() : null;
+        LocalDateTime endDateTime = isDateFilterApplied ? endDate.atTime(LocalTime.MAX) : null;
+
+        Page<Task> taskPage;
+
+        // 3. Fetch Data Based on Role
+        if (currentUser.getRole() == Role.SUPER_ADMIN) {
+            if (isDateFilterApplied) {
+                taskPage = taskRepository.findAllByCreatedAtBetween(startDateTime, endDateTime, pageable);
+            } else {
+                taskPage = taskRepository.findAll(pageable);
+            }
+        }
+        else if (currentUser.getRole() == Role.DEPT_HEAD) {
+            if (isDateFilterApplied) {
+                taskPage = taskRepository.findByCreatorIdOrAssigneeIdAndDateRange(
+                        currentUser.getId(), startDateTime, endDateTime, pageable);
+            } else {
+                taskPage = taskRepository.findByCreatorIdOrAssigneeId(currentUser.getId(), pageable);
+            }
+        }
+        else {
+            // Employee
+            if (isDateFilterApplied) {
+                taskPage = taskRepository.findByAssigneeIdAndCreatedAtBetween(
+                        currentUser.getId(), startDateTime, endDateTime, pageable);
+            } else {
+                taskPage = taskRepository.findByAssigneeId(currentUser.getId(), pageable);
+            }
+        }
+
+        // 4. Map Entity Page -> DTO List
+        List<TaskResponseDTO> content = taskPage.getContent().stream()
+                .map(this::mapToDTO)
+                .collect(Collectors.toList());
+
+        // 5. Return Wrapped Response
+        return new PaginatedResponse<>(
+                content,
+                taskPage.getNumber(),
+                taskPage.getSize(),
+                taskPage.getTotalElements(),
+                taskPage.getTotalPages(),
+                taskPage.isLast()
+        );
     }
 
 }
