@@ -30,13 +30,13 @@ public class EmailService {
     public void sendOtpEmail(String toEmail, String otp) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom("noreply@sribalajiads.com"); // Your sender email
+            message.setFrom(fromEmail); // Your sender email
             message.setTo(toEmail);
             message.setSubject("Password Reset OTP");
             message.setText("Your OTP for password reset is: " + otp + "\n\nThis OTP expires in 5 minutes.");
 
             mailSender.send(message);
-            System.out.println("📧 Email sent successfully to " + toEmail);
+            System.out.println("📧 OTP sent to " + toEmail);
         } catch (Exception e) {
             // Fallback for testing if SMTP is not configured
             System.err.println("⚠️ SMTP Error: " + e.getMessage());
@@ -48,7 +48,7 @@ public class EmailService {
     public void sendTaskAssignmentEmail(String toEmail, String assigneeName, String taskTitle, String creatorName, String description) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom("noreply@sribalajiads.com");
+            message.setFrom(fromEmail);
             message.setTo(toEmail);
             message.setSubject("New Task Assigned: " + taskTitle);
 
@@ -72,7 +72,7 @@ public class EmailService {
     public void sendTaskSubmissionEmail(String toEmail, String creatorName, String taskTitle, String assigneeName, String submitMessage) {
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom("noreply@sribalajiads.com");
+            message.setFrom(fromEmail);
             message.setTo(toEmail);
             message.setSubject("Task Submitted: " + taskTitle);
 
