@@ -561,7 +561,8 @@ public class TaskService {
             int pageNo,
             int pageSize,
             LocalDate startDate,
-            LocalDate endDate
+            LocalDate endDate,
+            TaskStatus status
     ) {
         User currentUser = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -576,30 +577,16 @@ public class TaskService {
 
         Page<Task> taskPage;
 
-        // 3. Fetch Data Based on Role
+        // 3. Call Smart Repository Methods based on Role
         if (currentUser.getRole() == Role.SUPER_ADMIN) {
-            if (isDateFilterApplied) {
-                taskPage = taskRepository.findAllByCreatedAtBetween(startDateTime, endDateTime, pageable);
-            } else {
-                taskPage = taskRepository.findAll(pageable);
-            }
+            taskPage = taskRepository.findTasksForAdmin(status, startDateTime, endDateTime, pageable);
         }
         else if (currentUser.getRole() == Role.DEPT_HEAD) {
-            if (isDateFilterApplied) {
-                taskPage = taskRepository.findByCreatorIdOrAssigneeIdAndDateRange(
-                        currentUser.getId(), startDateTime, endDateTime, pageable);
-            } else {
-                taskPage = taskRepository.findByCreatorIdOrAssigneeId(currentUser.getId(), pageable);
-            }
+            taskPage = taskRepository.findTasksForHead(currentUser.getId(), status, startDateTime, endDateTime, pageable);
         }
         else {
             // Employee
-            if (isDateFilterApplied) {
-                taskPage = taskRepository.findByAssigneeIdAndCreatedAtBetween(
-                        currentUser.getId(), startDateTime, endDateTime, pageable);
-            } else {
-                taskPage = taskRepository.findByAssigneeId(currentUser.getId(), pageable);
-            }
+            taskPage = taskRepository.findTasksForEmployee(currentUser.getId(), status, startDateTime, endDateTime, pageable);
         }
 
         // 4. Map Entity Page -> DTO List

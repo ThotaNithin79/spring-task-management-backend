@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import com.sribalajiads.task_management.entity.TaskStatus;
 
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
@@ -110,6 +111,46 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query("SELECT t FROM Task t WHERE (t.creator.id = :userId OR t.assignee.id = :userId) AND t.createdAt BETWEEN :start AND :end")
     Page<Task> findByCreatorIdOrAssigneeIdAndDateRange(
             @Param("userId") Long userId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            Pageable pageable
+    );
+
+    // 1. SUPER ADMIN: Filter by Status (Optional) AND Date (Optional)
+    @Query("SELECT t FROM Task t WHERE " +
+            "(:status IS NULL OR t.status = :status) AND " +
+            "(:start IS NULL OR t.createdAt >= :start) AND " +
+            "(:end IS NULL OR t.createdAt <= :end)")
+    Page<Task> findTasksForAdmin(
+            @Param("status") TaskStatus status,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            Pageable pageable
+    );
+
+    // 2. DEPARTMENT HEAD: Filter by (Creator OR Assignee) + Status + Date
+    @Query("SELECT t FROM Task t WHERE " +
+            "(t.creator.id = :userId OR t.assignee.id = :userId) AND " +
+            "(:status IS NULL OR t.status = :status) AND " +
+            "(:start IS NULL OR t.createdAt >= :start) AND " +
+            "(:end IS NULL OR t.createdAt <= :end)")
+    Page<Task> findTasksForHead(
+            @Param("userId") Long userId,
+            @Param("status") TaskStatus status,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end,
+            Pageable pageable
+    );
+
+    // 3. EMPLOYEE: Filter by Assignee + Status + Date
+    @Query("SELECT t FROM Task t WHERE " +
+            "t.assignee.id = :userId AND " +
+            "(:status IS NULL OR t.status = :status) AND " +
+            "(:start IS NULL OR t.createdAt >= :start) AND " +
+            "(:end IS NULL OR t.createdAt <= :end)")
+    Page<Task> findTasksForEmployee(
+            @Param("userId") Long userId,
+            @Param("status") TaskStatus status,
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end,
             Pageable pageable

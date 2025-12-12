@@ -1,5 +1,7 @@
 package com.sribalajiads.task_management.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -13,12 +15,18 @@ import java.util.UUID;
 @Service
 public class FileStorageService {
 
-    // Folder where files will be stored
-    private final Path fileStorageLocation = Paths.get("uploads").toAbsolutePath().normalize();
+    private final Path fileStorageLocation;
 
-    public FileStorageService() {
+    // CONSTRUCTOR INJECTION:
+    // This tells Spring: "Go to application.properties, find 'file.upload-dir',
+    // and pass it to this constructor."
+    @Autowired
+    public FileStorageService(@Value("${file.upload-dir}") String uploadDir) {
+        // Create the path object from the config string
+        this.fileStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
+
         try {
-            // Create the directory if it doesn't exist
+            // Ensure the directory exists
             Files.createDirectories(this.fileStorageLocation);
         } catch (Exception ex) {
             throw new RuntimeException("Could not create the directory where the uploaded files will be stored.", ex);
@@ -29,10 +37,10 @@ public class FileStorageService {
         try {
             // Normalize file name
             String originalFileName = file.getOriginalFilename();
-            // Generate unique filename to prevent overwriting
+            // Generate unique filename
             String fileName = UUID.randomUUID().toString() + "_" + originalFileName;
 
-            // Copy file to the target location (Replacing existing file with the same name)
+            // Copy file to the target location
             Path targetLocation = this.fileStorageLocation.resolve(fileName);
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
 
