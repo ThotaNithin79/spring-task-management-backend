@@ -45,6 +45,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import com.sribalajiads.task_management.dto.SocketNotificationDTO;
+
 @Service
 public class TaskService {
 
@@ -62,6 +65,9 @@ public class TaskService {
 
     @Autowired
     private EmailService emailService;
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
 
 
     // Now accepts MultipartFile
@@ -118,6 +124,9 @@ public class TaskService {
                     savedTask.getDescription()
             );
         }
+
+        // === TARGETED REAL-TIME UPDATE ===
+        notifyTaskParticipants(savedTask, "TASK_UPDATED");
 
         return savedTask;
     }
@@ -208,12 +217,17 @@ public class TaskService {
         }
 
         task.setStatus(TaskStatus.IN_PROGRESS);
-        taskRepository.save(task);
+
+        // Capture the result in 'savedTask'
+        Task savedTask = taskRepository.save(task);
 
         // LOG HISTORY: STARTED
         taskHistoryRepository.save(new TaskHistory(
                 task, currentUser, "STARTED", "Task status changed to In Progress", null
         ));
+
+        // === TARGETED REAL-TIME UPDATE ===
+        notifyTaskParticipants(savedTask, "TASK_UPDATED");
     }
 
     // Submit Task (Now accepts optional message)
@@ -246,7 +260,9 @@ public class TaskService {
         // 6. Update Task
         task.setProofUrl(fileName);
         task.setStatus(TaskStatus.SUBMITTED);
-        taskRepository.save(task);
+
+        // Capture the result in 'savedTask'
+        Task savedTask = taskRepository.save(task);
 
         // 7. Determine History Comment
         String historyComment = (message != null && !message.trim().isEmpty())
@@ -271,6 +287,9 @@ public class TaskService {
                     message                   // The optional message entered by Employee
             );
         }
+
+        // === TARGETED REAL-TIME UPDATE ===
+        notifyTaskParticipants(savedTask, "TASK_UPDATED");
     }
 
     public void reviewTask(Long taskId, String reviewerEmail, String action,  String comment) {
@@ -312,12 +331,16 @@ public class TaskService {
             throw new RuntimeException("Invalid Action: Must be 'ACCEPT' or 'REJECT'.");
         }
 
-        taskRepository.save(task);
+        // Capture the result in 'savedTask'
+        Task savedTask = taskRepository.save(task);
 
         // LOG HISTORY: REVIEW (With Comment)
         taskHistoryRepository.save(new TaskHistory(
                 task, reviewer, historyAction, historyComment, null
         ));
+
+        // === TARGETED REAL-TIME UPDATE ===
+        notifyTaskParticipants(savedTask, "TASK_UPDATED");
     }
 
     // 5. Get Task History
@@ -386,9 +409,17 @@ public class TaskService {
             task.setAttachmentUrl(fileName); // Overwrite old file
         }
 
-        return taskRepository.save(task);
+        // Capture the result in 'savedTask'
+        Task savedTask = taskRepository.save(task);
+
+        // === REAL-TIME UPDATE ===
+        TaskResponseDTO responseDTO = mapToDTO(savedTask);
+        notifyTaskParticipants(savedTask, "TASK_UPDATED");
+
+        return savedTask;
     }
 
+    // TASK DELETE (Allowed only within 5 mins AND if not started)
     // TASK DELETE (Allowed only within 5 mins AND if not started)
     public void deleteTask(Long taskId, String requesterEmail) {
         // 1. Fetch Task
@@ -398,6 +429,11 @@ public class TaskService {
         // 2. Fetch Requester
         User currentUser = userRepository.findByEmail(requesterEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // === FIX START: Extract Emails needed for notification later ===
+        String creatorEmail = task.getCreator().getEmail();
+        String assigneeEmail = task.getAssignee().getEmail();
+        // === FIX END ===
 
         // 3. CHECK 1: Only Creator can delete
         if (!task.getCreator().getId().equals(currentUser.getId())) {
@@ -417,11 +453,20 @@ public class TaskService {
             throw new RuntimeException("Delete Time Expired: You can only delete a task within 5 minutes of creation.");
         }
 
-        // 6. Optional: Delete physical attachment file if exists
-        // (If you want to clean up storage, you can add file deletion logic here using Files.delete(path))
-
-        // 7. Delete from Database
+        // 6. Delete from Database
         taskRepository.delete(task);
+
+        // === TARGETED DELETION NOTIFICATION ===
+        TaskResponseDTO deletedStub = new TaskResponseDTO();
+        deletedStub.setId(taskId);
+        SocketNotificationDTO notification = new SocketNotificationDTO("TASK_DELETED", deletedStub);
+
+        // Now these variables exist!
+        messagingTemplate.convertAndSendToUser(creatorEmail, "/queue/tasks", notification);
+
+        if (!creatorEmail.equals(assigneeEmail)) {
+            messagingTemplate.convertAndSendToUser(assigneeEmail, "/queue/tasks", notification);
+        }
     }
 
     // Get Tasks by Department (Admin View)
@@ -603,6 +648,33 @@ public class TaskService {
                 taskPage.getTotalPages(),
                 taskPage.isLast()
         );
+    }
+
+    private void notifyTaskParticipants(Task task, String actionType) {
+        // 1. Prepare DTO
+        TaskResponseDTO responseDTO = mapToDTO(task);
+        SocketNotificationDTO notification = new SocketNotificationDTO(actionType, responseDTO);
+
+        // 2. Identify Recipients
+        String creatorEmail = task.getCreator().getEmail();
+        String assigneeEmail = task.getAssignee().getEmail();
+
+        // 3. Send to Creator (Private Channel)
+        // Frontend subscribes to: /user/queue/tasks
+        messagingTemplate.convertAndSendToUser(
+                creatorEmail,
+                "/queue/tasks",
+                notification
+        );
+
+        // 4. Send to Assignee (only if different from creator)
+        if (!creatorEmail.equals(assigneeEmail)) {
+            messagingTemplate.convertAndSendToUser(
+                    assigneeEmail,
+                    "/queue/tasks",
+                    notification
+            );
+        }
     }
 
 }
